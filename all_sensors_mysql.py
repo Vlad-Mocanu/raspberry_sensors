@@ -4,6 +4,7 @@ import os
 import glob
 import time
 import thread
+import argparse
 import RPi.GPIO as io
 io.setmode(io.BCM)
 
@@ -51,10 +52,10 @@ class Temperature:
 
 
 def write_to_db(my_sql):
-    db = MySQLdb.connect(host="localhost",    # your host, usually localhost
-                         user="root",         # your username
-                         passwd="123",        # your password
-                         db="sensors")        # name of the data base
+    db = MySQLdb.connect(host=mysql_credentials[0],         # your host, usually localhost
+                         user=mysql_credentials[1],         # your username
+                         passwd=mysql_credentials[2],       # your password
+                         db="sensors")                      # name of the data base
 
     # you must create a Cursor object. It will let you execute all the queries you need
     cursor = db.cursor()
@@ -103,6 +104,16 @@ def temp_thread():
         print(sql)
         write_to_db(sql)
         time.sleep(1800)
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--file', '-f', required=True, help='path to MySQL credential file (one line: IP user password)')
+args = parser.parse_args()
+f = open(args.file, 'r')
+lines = f.readlines()
+f.close()
+mysql_credentials = lines[0].split();
+
+print(mysql_credentials)
 
 thread.start_new_thread(temp_thread, ())
 thread.start_new_thread(window_thread, ())
