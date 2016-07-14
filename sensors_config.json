@@ -1,0 +1,23 @@
+{
+   "mysql":{
+      "server":"localhost",
+      "user":"root",
+      "password":"123"
+   },
+   "all_windows":{
+      "window":[
+         {
+            "name":"Living LEFT",
+            "pin":23
+         },
+         {
+            "name":"Living RIGHT",
+            "pin":24
+         }
+      ],
+      "sample_rate":10
+   },
+   "temperature":{
+      "sample_rate":1800
+   }
+}

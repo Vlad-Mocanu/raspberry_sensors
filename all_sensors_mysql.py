@@ -5,6 +5,7 @@ import glob
 import time
 import thread
 import argparse
+import json
 import RPi.GPIO as io
 io.setmode(io.BCM)
 
@@ -52,12 +53,12 @@ class Temperature:
 
 
 def write_to_db(my_sql):
-    db = MySQLdb.connect(host=mysql_credentials[0],         # your host, usually localhost
-                         user=mysql_credentials[1],         # your username
-                         passwd=mysql_credentials[2],       # your password
-                         db="sensors")                      # name of the data base
+    db = MySQLdb.connect(host=config_options["mysql"]["server"],
+                         user=config_options["mysql"]["user"],
+                         passwd=config_options["mysql"]["password"],
+                         db="sensors")
 
-    # you must create a Cursor object. It will let you execute all the queries you need
+    # an Cursor object must be created. It will let you execute all the queries you need
     cursor = db.cursor()
     
     try:
@@ -72,9 +73,9 @@ def write_to_db(my_sql):
 
 def window_thread():
     #initialization for windows
-    all_windows = []
-    all_windows.append(Window("Living LEFT", 23))
-    all_windows.append(Window("Living RIGHT", 24))
+    all_windows = [];
+    for win in config_options["all_windows"]["window"]:
+		all_windows.append(Window(win["name"], win["pin"]))
 
     for win in all_windows:
         sql = win.get_sql()
@@ -89,7 +90,7 @@ def window_thread():
                 print(sql)
                 write_to_db(sql)
 
-        time.sleep(10)
+        time.sleep(config_options["all_windows"]["sample_rate"])
 
 def temp_thread():
     #initialization for tempetature
@@ -103,17 +104,15 @@ def temp_thread():
         sql = temp.get_sql()
         print(sql)
         write_to_db(sql)
-        time.sleep(1800)
+        time.sleep(config_options["temperature"]["sample_rate"])
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--file', '-f', required=True, help='path to MySQL credential file (one line: IP user password)')
+parser.add_argument('--config_file', '-f', default="sensors_config.json", help='path to configuration json file (default: sensors_config.json)')
 args = parser.parse_args()
-f = open(args.file, 'r')
-lines = f.readlines()
-f.close()
-mysql_credentials = lines[0].split();
 
-print(mysql_credentials)
+with open(args.config_file) as data_file:    
+    config_options = json.load(data_file)
+data_file.close()
 
 thread.start_new_thread(temp_thread, ())
 thread.start_new_thread(window_thread, ())
