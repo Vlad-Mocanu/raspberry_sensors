@@ -8,6 +8,8 @@ import argparse
 import json
 import RPi.GPIO as io
 io.setmode(io.BCM)
+#~ import Adafruit_BME280
+from Adafruit_BME280 import *
 
 #create table windows (id int not null auto_increment, name varchar(30), state int, date timestamp, primary key (id));
 
@@ -24,11 +26,12 @@ class Window:
     def update_state(self):
         self.state = self.get_current_state()
 
-    def get_sql(self):
-        return "insert into sensors.windows (name, state, date) values(\"" + self.name + "\", " + str(self.state) + ", NOW());"
+    def get_sql(self, db):
+        return "insert into " + db + ".windows (name, state, date) values(\"" + self.name + "\", " + str(self.state) + ", NOW());"
 
 class Temperature:
-    def __init__(self, device_file):
+    def __init__(self, name, device_file):
+        self.name = name
         self.device_file = device_file
 
     def read_temp_raw(self):
@@ -48,23 +51,46 @@ class Temperature:
             temp_c = float(temp_string) / 1000.0
             return temp_c
 
-    def get_sql(self):
-        return "insert into sensors.temperature (value, date) values(" + str(round(self.read_temp(), 4)) + ", NOW());"
+    def get_sql(self, db):
+        return "insert into " + db + ".temperature (name, value, date) values(\"" + self.name + "\", " + str(round(self.read_temp(), 4)) + ", NOW());"
 
+def create_tables():
+    db = config_options["mysql"]["database"]
+    #create sensors database
+    sql = "create database if not exists " + db + ";"
+    write_to_db(sql, 0)
+    #create windows table
+    sql = "create table if not exists " + db + ".windows (id int not null auto_increment, name varchar(30), state int, date timestamp, primary key (id));"
+    write_to_db(sql, 0)
+    #create temperature table
+    sql = "create table if not exists " + db + ".temperature (id int not null auto_increment, name varchar(30), value float, date timestamp, primary key (id));"
+    write_to_db(sql, 0)
+    #create humidity table
+    sql = "create table if not exists " + db + ".humidity (id int not null auto_increment, name varchar(30), value float, date timestamp, primary key (id));"
+    write_to_db(sql, 0)
+    #create pressure table
+    sql = "create table if not exists " + db + ".pressure (id int not null auto_increment, name varchar(30), value float, date timestamp, primary key (id));"
+    write_to_db(sql, 0)
 
-def write_to_db(my_sql):
-    db = MySQLdb.connect(host=config_options["mysql"]["server"],
+def write_to_db(my_sql, database):
+    if (database == 1):
+        db = MySQLdb.connect(host=config_options["mysql"]["server"],
                          user=config_options["mysql"]["user"],
                          passwd=config_options["mysql"]["password"],
-                         db="sensors")
+                         db=config_options["mysql"]["database"])
+    else:
+        db = MySQLdb.connect(host=config_options["mysql"]["server"],
+                         user=config_options["mysql"]["user"],
+                         passwd=config_options["mysql"]["password"])
 
     # an Cursor object must be created. It will let you execute all the queries you need
     cursor = db.cursor()
-    
+
     try:
-        # Execute the SQL command and commit changes in the database 
+        # Execute the SQL command and commit changes in the database
         cursor.execute(my_sql)
         db.commit()
+        print(my_sql)
     except:
         db.rollback()
 
@@ -75,20 +101,18 @@ def window_thread():
     #initialization for windows
     all_windows = [];
     for win in config_options["all_windows"]["window"]:
-		all_windows.append(Window(win["name"], win["pin"]))
+        all_windows.append(Window(win["name"], win["pin"]))
 
     for win in all_windows:
-        sql = win.get_sql()
-        print(sql)
-        write_to_db(sql)
+        sql = win.get_sql(config_options["mysql"]["database"])
+        write_to_db(sql, 0)
 
     while True:
         for win in all_windows:
             if (win.get_current_state() != win.state):
                 win.update_state()
-                sql = win.get_sql()
-                print(sql)
-                write_to_db(sql)
+                sql = win.get_sql(config_options["mysql"]["database"])
+                write_to_db(sql, 0)
 
         time.sleep(config_options["all_windows"]["sample_rate"])
 
@@ -98,23 +122,40 @@ def temp_thread():
     os.system('modprobe w1-therm')
     base_dir = '/sys/bus/w1/devices/'
     device_folder = glob.glob(base_dir + '28*')[0]
-    temp = Temperature(device_folder + '/w1_slave')
-        
+    temp = Temperature("Indoor Living", device_folder + '/w1_slave')
+
     while True:
-        sql = temp.get_sql()
-        print(sql)
-        write_to_db(sql)
+        sql = temp.get_sql(config_options["mysql"]["database"])
+        write_to_db(sql, 0)
         time.sleep(config_options["temperature"]["sample_rate"])
+
+def outdoor_unit_thread():
+    sensor = BME280(mode=BME280_OSAMPLE_8)
+    name = "Outdoor Unit"
+    db = config_options["mysql"]["database"]
+
+    while True:
+        sql = "insert into " + db + ".temperature (name, value, date) values(\"" + name + "\"," + str(round(sensor.read_temperature(), 3)) + ", NOW());"
+        write_to_db(sql, 0)
+        sql = "insert into " + db + ".humidity (name, value, date) values(\"" + name + "\"," + str(round(sensor.read_humidity(), 1)) + ", NOW());"
+        write_to_db(sql, 0)
+        sql = "insert into " + db + ".pressure (name, value, date) values(\"" + name + "\"," + str(round(sensor.read_pressure() / 100, 2)) + ", NOW());"
+        write_to_db(sql, 0)
+
+        time.sleep(config_options["outdoor_unit"]["sample_rate"])
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--config_file', '-f', default="sensors_config.json", help='path to configuration json file (default: sensors_config.json)')
 args = parser.parse_args()
 
-with open(args.config_file) as data_file:    
+with open(args.config_file) as data_file:
     config_options = json.load(data_file)
 data_file.close()
 
+create_tables()
+
 thread.start_new_thread(temp_thread, ())
 thread.start_new_thread(window_thread, ())
+thread.start_new_thread(outdoor_unit_thread, ())
 while True:
     time.sleep(1800)

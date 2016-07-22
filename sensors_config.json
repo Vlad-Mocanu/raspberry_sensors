@@ -2,7 +2,8 @@
    "mysql":{
       "server":"localhost",
       "user":"root",
-      "password":"123"
+      "password":"123",
+      "database":"sensors"
    },
    "all_windows":{
       "window":[
@@ -18,6 +19,9 @@
       "sample_rate":10
    },
    "temperature":{
+      "sample_rate":1800
+   },
+   "outdoor_unit":{
       "sample_rate":1800
    }
 }
