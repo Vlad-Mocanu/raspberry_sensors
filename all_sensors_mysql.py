@@ -8,10 +8,7 @@ import argparse
 import json
 import RPi.GPIO as io
 io.setmode(io.BCM)
-#~ import Adafruit_BME280
-from Adafruit_BME280 import *
-
-#create table windows (id int not null auto_increment, name varchar(30), state int, date timestamp, primary key (id));
+import Adafruit_BME280
 
 class Window:
     def __init__(self, name, pin):
@@ -58,28 +55,22 @@ def create_tables():
     db = config_options["mysql"]["database"]
     #create sensors database
     sql = "create database if not exists " + db + ";"
-    write_to_db(sql, 0)
+    write_to_db(sql)
     #create windows table
     sql = "create table if not exists " + db + ".windows (id int not null auto_increment, name varchar(30), state int, date timestamp, primary key (id));"
-    write_to_db(sql, 0)
+    write_to_db(sql)
     #create temperature table
     sql = "create table if not exists " + db + ".temperature (id int not null auto_increment, name varchar(30), value float, date timestamp, primary key (id));"
-    write_to_db(sql, 0)
+    write_to_db(sql)
     #create humidity table
     sql = "create table if not exists " + db + ".humidity (id int not null auto_increment, name varchar(30), value float, date timestamp, primary key (id));"
-    write_to_db(sql, 0)
+    write_to_db(sql)
     #create pressure table
     sql = "create table if not exists " + db + ".pressure (id int not null auto_increment, name varchar(30), value float, date timestamp, primary key (id));"
-    write_to_db(sql, 0)
+    write_to_db(sql)
 
-def write_to_db(my_sql, database):
-    if (database == 1):
-        db = MySQLdb.connect(host=config_options["mysql"]["server"],
-                         user=config_options["mysql"]["user"],
-                         passwd=config_options["mysql"]["password"],
-                         db=config_options["mysql"]["database"])
-    else:
-        db = MySQLdb.connect(host=config_options["mysql"]["server"],
+def write_to_db(my_sql):
+    db = MySQLdb.connect(host=config_options["mysql"]["server"],
                          user=config_options["mysql"]["user"],
                          passwd=config_options["mysql"]["password"])
 
@@ -105,14 +96,14 @@ def window_thread():
 
     for win in all_windows:
         sql = win.get_sql(config_options["mysql"]["database"])
-        write_to_db(sql, 0)
+        write_to_db(sql)
 
     while True:
         for win in all_windows:
             if (win.get_current_state() != win.state):
                 win.update_state()
                 sql = win.get_sql(config_options["mysql"]["database"])
-                write_to_db(sql, 0)
+                write_to_db(sql)
 
         time.sleep(config_options["all_windows"]["sample_rate"])
 
@@ -126,21 +117,21 @@ def temp_thread():
 
     while True:
         sql = temp.get_sql(config_options["mysql"]["database"])
-        write_to_db(sql, 0)
+        write_to_db(sql)
         time.sleep(config_options["temperature"]["sample_rate"])
 
 def outdoor_unit_thread():
-    sensor = BME280(mode=BME280_OSAMPLE_8)
+    sensor = Adafruit_BME280.BME280(mode=Adafruit_BME280.BME280_OSAMPLE_8)
     name = "Outdoor Unit"
     db = config_options["mysql"]["database"]
 
     while True:
         sql = "insert into " + db + ".temperature (name, value, date) values(\"" + name + "\"," + str(round(sensor.read_temperature(), 3)) + ", NOW());"
-        write_to_db(sql, 0)
+        write_to_db(sql)
         sql = "insert into " + db + ".humidity (name, value, date) values(\"" + name + "\"," + str(round(sensor.read_humidity(), 1)) + ", NOW());"
-        write_to_db(sql, 0)
+        write_to_db(sql)
         sql = "insert into " + db + ".pressure (name, value, date) values(\"" + name + "\"," + str(round(sensor.read_pressure() / 100, 2)) + ", NOW());"
-        write_to_db(sql, 0)
+        write_to_db(sql)
 
         time.sleep(config_options["outdoor_unit"]["sample_rate"])
 
