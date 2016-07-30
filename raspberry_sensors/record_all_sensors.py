@@ -1,5 +1,5 @@
 #!/usr/bin/python
-import MySQLdb
+import pymysql
 import os
 import glob
 import time
@@ -70,7 +70,7 @@ def create_tables():
     write_to_db(sql)
 
 def write_to_db(my_sql):
-    db = MySQLdb.connect(host=config_options["mysql"]["server"],
+    db = pymysql.connect(host=config_options["mysql"]["server"],
                          user=config_options["mysql"]["user"],
                          passwd=config_options["mysql"]["password"])
 
