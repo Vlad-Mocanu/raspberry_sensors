@@ -29,6 +29,7 @@ setup(
 	install_requires=[
 		'RPi.GPIO>=0.6.2',
 		'Adafruit-GPIO>=0.6.5',
-		'PyMySQL>=0.7.6'	
+		'PyMySQL>=0.7.6',
+		'Flask>=0.11.1'
 	]
 )
