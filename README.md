@@ -10,6 +10,7 @@ For the time being to the Pi there are connected:
 - one outdoor weather unit with temperature, barometric pressure and humidity sensor (BME280)
 
 All the sampled data is stored in a MySQL DB. From here the data can be plotted, interpreted and anylized.
+The front-end application for Android is https://github.com/Vlad-Mocanu/RaspbiAtHome.
 
 ## Requirements
 
